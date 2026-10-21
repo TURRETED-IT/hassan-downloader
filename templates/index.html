@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hassan Downloader</title>
+  <style>
+    :root { color-scheme: dark; --bg:#090d18; --panel:#121a2b; --muted:#a9b4ca; --accent:#6d5dfc; --accent2:#17c9a3; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0; min-height:100vh; font-family:Tahoma,Arial,sans-serif; color:#f7f8ff;
+      background: radial-gradient(circle at 15% 10%, #20235a 0, transparent 35%),
+                  radial-gradient(circle at 90% 85%, #073c45 0, transparent 30%), var(--bg);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .wrap { width:min(760px,100%); }
+    .brand { text-align:center; margin-bottom:28px; }
+    .logo { display:inline-grid; place-items:center; width:66px; height:66px; border-radius:20px;
+      background:linear-gradient(135deg,var(--accent),#20d7ba); font-size:30px; box-shadow:0 12px 40px #17134c; }
+    h1 { margin:14px 0 8px; font-size:clamp(28px,5vw,42px); }
+    .subtitle { color:var(--muted); line-height:1.8; }
+    .panel { background:rgba(18,26,43,.92); border:1px solid #29334a; border-radius:24px; padding:clamp(20px,5vw,36px); box-shadow:0 25px 80px #0005; }
+    label { display:block; margin:18px 0 9px; font-size:14px; color:#d8def0; }
+    input,select { width:100%; border:1px solid #34405a; background:#0b1120; color:white; border-radius:13px; padding:15px; font-size:15px; outline:none; }
+    input:focus,select:focus { border-color:var(--accent); box-shadow:0 0 0 3px #6d5dfc2b; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    button { width:100%; margin-top:22px; border:0; border-radius:14px; padding:16px; font-weight:bold; font-size:16px; color:white; cursor:pointer;
+      background:linear-gradient(100deg,var(--accent),#4c8dff); }
+    button:disabled { opacity:.6; cursor:wait; }
+    .note { color:var(--muted); font-size:12px; line-height:1.8; margin-top:18px; }
+    .status { display:none; margin-top:20px; border-radius:14px; padding:16px; background:#0b1120; border:1px solid #29334a; line-height:1.8; overflow-wrap:anywhere; }
+    .bar { height:8px; background:#273149; border-radius:20px; overflow:hidden; margin:12px 0; }
+    .bar > div { height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s; }
+    .download { display:inline-block; color:#70e5cb; font-weight:bold; margin-top:8px; }
+    @media(max-width:560px){ .row{grid-template-columns:1fr;} body{padding:14px;} }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="brand">
+      <div class="logo">↓</div>
+      <h1>Hassan Downloader</h1>
+      <div class="subtitle">نزّل الفيديو أو الصوت من رابط مباشر<br>بواجهة بسيطة وسريعة</div>
+    </header>
+    <section class="panel">
+      <form id="downloadForm">
+        <label for="url">رابط الفيديو أو الصوت</label>
+        <input id="url" name="url" type="url" placeholder="https://example.com/video" required>
+        <div class="row">
+          <div>
+            <label for="kind">نوع الملف</label>
+            <select id="kind" name="kind">
+              <option value="video">فيديو</option>
+              <option value="audio">صوت MP3</option>
+            </select>
+          </div>
+          <div>
+            <label for="quality">جودة الفيديو</label>
+            <select id="quality" name="quality">
+              <option value="best">أفضل جودة متاحة</option>
+              <option value="1080">حتى 1080p</option>
+              <option value="720">حتى 720p</option>
+              <option value="480">حتى 480p</option>
+            </select>
+          </div>
+        </div>
+        <button id="submitBtn" type="submit">ابدأ التنزيل</button>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite">
+        <div id="message">جارٍ تجهيز الطلب...</div>
+        <div class="bar"><div id="progressBar"></div></div>
+        <div id="downloadLink"></div>
+      </div>
+      <p class="note">استخدم الموقع لتنزيل المحتوى الذي تملكه أو لديك إذن بتنزيله. قد لا تعمل بعض الروابط بسبب تسجيل الدخول أو الاشتراك أو القيود التي تفرضها المنصة. هذا نموذج أولي؛ لا ترفعه للعامة قبل إضافة حماية وحدود استخدام وتنظيف الملفات المؤقتة.</p>
+    </section>
+  </main>
+<script>
+const form = document.getElementById('downloadForm');
+const btn = document.getElementById('submitBtn');
+const statusBox = document.getElementById('status');
+const message = document.getElementById('message');
+const progressBar = document.getElementById('progressBar');
+const downloadLink = document.getElementById('downloadLink');
+const kind = document.getElementById('kind');
+const quality = document.getElementById('quality');
+
+kind.addEventListener('change', () => {
+  quality.disabled = kind.value === 'audio';
+});
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  btn.disabled = true;
+  statusBox.style.display = 'block';
+  message.textContent = 'جارٍ إرسال الرابط...';
+  progressBar.style.width = '0%';
+  downloadLink.replaceChildren();
+
+  try {
+    const response = await fetch('/api/download', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        url: document.getElementById('url').value,
+        kind: kind.value,
+        quality: quality.value
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'تعذر بدء التنزيل.');
+    await poll(data.job_id);
+  } catch (error) {
+    message.textContent = error.message || 'حدث خطأ غير متوقع.';
+    btn.disabled = false;
+  }
+});
+
+async function poll(jobId) {
+  try {
+    const response = await fetch('/api/status/' + encodeURIComponent(jobId));
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'تعذر قراءة حالة التنزيل.');
+    message.textContent = data.message || 'جارٍ العمل...';
+    if (data.progress !== null && data.progress !== undefined) {
+      progressBar.style.width = Math.max(0, Math.min(100, data.progress)) + '%';
+    }
+    if (data.status === 'done') {
+      message.textContent = 'اكتمل تجهيز الملف: ' + (data.title || '');
+      const a = document.createElement('a');
+      a.className = 'download';
+      a.href = data.download_url;
+      a.textContent = 'اضغط هنا لتنزيل الملف';
+      downloadLink.appendChild(a);
+      btn.disabled = false;
+      return;
+    }
+    if (data.status === 'error') {
+      message.textContent = 'تعذر التنزيل: ' + data.message;
+      btn.disabled = false;
+      return;
+    }
+    setTimeout(() => poll(jobId), 1500);
+  } catch (error) {
+    message.textContent = error.message || 'تعذر الاتصال بالخادم.';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
