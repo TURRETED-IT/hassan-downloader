@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, render_template, request, jsonify, send_file, abort
 import yt_dlp
+import imageio_ffmpeg
 
 BASE_DIR = Path(__file__).resolve().parent
 DOWNLOAD_DIR = BASE_DIR / "downloads"
@@ -46,8 +47,9 @@ def validate_url(url: str) -> str:
 
 def run_download(job_id: str, url: str, kind: str, quality: str):
     outtmpl = str(DOWNLOAD_DIR / f"{job_id}_%(title).80s.%(ext)s")
-    opts = {
-        "outtmpl": outtmpl,
+   opts = {
+    "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
+    "outtmpl": outtmpl,
         "noplaylist": True,
         "restrictfilenames": True,
         "quiet": True,
