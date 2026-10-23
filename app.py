@@ -47,9 +47,9 @@ def validate_url(url: str) -> str:
 
 def run_download(job_id: str, url: str, kind: str, quality: str):
     outtmpl = str(DOWNLOAD_DIR / f"{job_id}_%(title).80s.%(ext)s")
-   opts = {
-    "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
-    "outtmpl": outtmpl,
+    opts = {
+        "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
+        "outtmpl": outtmpl,
         "noplaylist": True,
         "restrictfilenames": True,
         "quiet": True,
